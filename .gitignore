@@ -1,0 +1,206 @@
+# ============================================
+# SAFEGUARD PROJECT - GITIGNORE
+# SECURITY-FIRST: No secrets, no exceptions
+# ============================================
+
+# ── SECRETS & CREDENTIALS (NEVER COMMIT) ──
+*.env
+.env.*
+!.env.example
+!.env.sample
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+*.crt
+*.cer
+*.pfx
+**/secrets/
+**/credentials/
+**/service-account*.json
+**/firebase-*.json
+**/*credential*
+**/*secret*
+**/*token*
+!**/README.md
+!**/.gitkeep
+
+# ── VAULT ──
+vault/data/
+vault/logs/
+vault/file/
+*.hcl
+!deploy/vault/config/*.hcl
+!deploy/vault/policies/*.hcl
+
+# ── JAVA / SPRING BOOT ──
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+dependency-reduced-pom.xml
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ── GRADLE ──
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# ── IDE ──
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+.factorypath
+*.code-workspace
+
+# ── DOCKER ──
+docker-compose.override.yml
+docker-compose.local.yml
+
+# ── KUBERNETES ──
+**/charts/*.tgz
+
+# ── TERRAFORM ──
+deploy/terraform/**/*.tfstate
+deploy/terraform/**/*.tfstate.*
+deploy/terraform/**/.terraform/
+deploy/terraform/**/*.tfvars
+!deploy/terraform/**/*.tfvars.example
+deploy/terraform/**/.terraform.lock.hcl
+deploy/terraform/**/crash.log
+deploy/terraform/**/*.tfplan
+deploy/terraform/**/override.tf
+deploy/terraform/**/override.tf.json
+deploy/terraform/**/*_override.tf
+deploy/terraform/**/*_override.tf.json
+deploy/terraform/**/.terraformrc
+deploy/terraform/**/terraform.rc
+
+# ── TERRAFORM SECRETS ──
+deploy/terraform/environments/dev/terraform.tfvars
+deploy/terraform/environments/staging/terraform.tfvars
+deploy/terraform/environments/production/terraform.tfvars
+
+# ── NODE / FRONTEND ──
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp/
+.pnp.js
+dist/
+build/
+.next/
+nuxt-output/
+.angular/
+out/
+
+# ── FLUTTER / DART (Apps) ──
+apps/citizen-app/.dart_tool/
+apps/citizen-app/.packages
+apps/citizen-app/.pub/
+apps/citizen-app/build/
+apps/citizen-app/.flutter-plugins
+apps/citizen-app/.flutter-plugins-dependencies
+apps/citizen-app/pubspec.lock
+apps/citizen-app/.metadata
+apps/officer-app/.dart_tool/
+apps/officer-app/.packages
+apps/officer-app/.pub/
+apps/officer-app/build/
+apps/officer-app/.flutter-plugins
+apps/officer-app/.flutter-plugins-dependencies
+apps/officer-app/pubspec.lock
+apps/officer-app/.metadata
+
+# ── ANDROID ──
+**/android/.gradle/
+**/android/app/build/
+**/android/local.properties
+**/android/key.properties
+**/android/*.jks
+**/android/*.keystore
+**/android/app/debug/
+**/android/app/release/
+
+# ── iOS ──
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Runner.xcworkspace/xcshareddata/
+**/ios/**/*.mobileprovision
+**/ios/**/*.p12
+
+# ── PYTHON ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+.eggs/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ── LOGS ──
+*.log
+logs/
+logs/**/
+
+# ── TEMP / CACHE ──
+tmp/
+temp/
+cache/
+.cache/
+*.tmp
+*.bak
+*.orig
+
+# ── TEST COVERAGE ──
+coverage/
+htmlcov/
+*.cover
+.coverage
+.coverage.*
+codecov.yml
+
+# ── DEPENDENCY LOCK (allow pom.xml, package-lock.json) ──
+# Intentionally NOT ignoring lock files
+
+# ── PRE-COMMIT ──
+.pre-commit-config.yaml
+
+# ── SAFE GUARD: Prevent accidental secrets via naming patterns ──
+**/application-local.yml
+**/application-local.yaml
+**/application-local.properties
+**/application-dev.yml
+**/application-dev.yaml
+**/application-dev.properties
+**/application-staging.yml
+**/application-staging.yaml
+**/application-staging.properties
+**/application-prod.yml
+**/application-prod.yaml
+**/application-prod.properties
+**/application-production.yml
+**/application-production.yaml
+**/application-production.properties
