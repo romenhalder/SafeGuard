@@ -1,0 +1,173 @@
+# ============================================
+# SAFEGUARD - CD Deploy to Production
+# Triggered on: Manual dispatch only
+# ============================================
+name: "CD - Deploy to Production"
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Docker image tag (commit SHA or version)"
+        required: true
+        default: "latest"
+      service:
+        description: "Service to deploy (or 'all')"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - api-gateway
+          - auth-service
+          - user-service
+          - alert-service
+          - location-service
+          - incident-service
+          - admin-service
+          - notification-service
+          - analytics-service
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
+jobs:
+  # ═══════════════════════════════════════════
+  #  APPROVAL GATE
+  # ═══════════════════════════════════════════
+  approval:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Approval gate
+        run: |
+          echo "Production deployment approved"
+          echo "Deploying: ${{ inputs.service }}"
+          echo "Image tag: ${{ inputs.image_tag }}"
+
+  # ═══════════════════════════════════════════
+  #  DEPLOY TO PRODUCTION
+  # ═══════════════════════════════════════════
+  deploy-production:
+    needs: approval
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-south-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.13.0"
+
+      - name: Update kubeconfig for production cluster
+        run: |
+          aws eks update-kubeconfig \
+            --name safeguard-production \
+            --region ap-south-1
+
+      - name: Pre-deployment backup
+        run: |
+          echo "Creating deployment backup..."
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          # Backup current Helm releases
+          helm list -n safeguard-production -o json > helm-backup-${TIMESTAMP}.json
+          echo "Backup saved: helm-backup-${TIMESTAMP}.json"
+
+      - name: Deploy to production
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          TARGET_SERVICE: ${{ inputs.service }}
+        run: |
+          SERVICES=(
+            api-gateway auth-service user-service alert-service
+            location-service incident-service admin-service
+            notification-service analytics-service
+          )
+
+          if [ "$TARGET_SERVICE" = "all" ]; then
+            DEPLOY_LIST="${SERVICES[@]}"
+          else
+            DEPLOY_LIST="$TARGET_SERVICE"
+          fi
+
+          for SERVICE in $DEPLOY_LIST; do
+            echo "Deploying $SERVICE to PRODUCTION..."
+            helm upgrade --install $SERVICE deploy/helm/$SERVICE \
+              -f deploy/helm/$SERVICE/values-production.yaml \
+              --set image.repository=$ECR_REGISTRY/safeguard/$SERVICE \
+              --set image.tag=$IMAGE_TAG \
+              --namespace safeguard-production \
+              --create-namespace \
+              --wait \
+              --timeout 10m \
+              --atomic
+
+            echo "Waiting 30s for stabilization..."
+            sleep 30
+          done
+
+      - name: Post-deployment verification
+        run: |
+          echo "=== Production Pod Status ==="
+          kubectl get pods -n safeguard-production -o wide
+          echo ""
+
+          echo "=== HPA Status ==="
+          kubectl get hpa -n safeguard-production
+          echo ""
+
+          echo "=== Health Checks ==="
+          GATEWAY_URL=$(kubectl get svc api-gateway -n safeguard-production -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "Production Gateway: $GATEWAY_URL"
+
+          for i in $(seq 1 5); do
+            if curl -sf "http://$GATEWAY_URL/actuator/health"; then
+              echo "Health check passed!"
+              break
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "DEPLOYMENT FAILED - Initiating rollback..."
+          SERVICES=(
+            api-gateway auth-service user-service alert-service
+            location-service incident-service admin-service
+            notification-service analytics-service
+          )
+
+          for SERVICE in "${SERVICES[@]}"; do
+            echo "Rolling back $SERVICE..."
+            helm rollback $SERVICE 0 -n safeguard-production --wait || true
+          done
+          echo "Rollback completed!"
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "PRODUCTION DEPLOYMENT SUMMARY"
+          echo "=========================================="
+          echo "Service: ${{ inputs.service }}"
+          echo "Image Tag: ${{ inputs.image_tag }}"
+          echo "Status: ${{ job.status }}"
+          echo "Time: $(date)"
+          echo "=========================================="

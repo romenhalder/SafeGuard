@@ -1,0 +1,78 @@
+# ============================================
+# SAFEGUARD - AlertManager Configuration
+# ============================================
+# IMPORTANT: Replace placeholder values
+# Do NOT commit real webhook URLs
+# ============================================
+
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'namespace', 'severity']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'slack-critical'
+
+  routes:
+    # Critical alerts -> PagerDuty + Slack
+    - match:
+        severity: critical
+      receiver: 'slack-critical'
+      continue: true
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+
+    # Warning alerts -> Slack
+    - match:
+        severity: warning
+      receiver: 'slack-warning'
+
+    # SOS-specific alerts (highest priority)
+    - match_re:
+        alertname: 'SOS.*|NoOfficer.*'
+      receiver: 'slack-sos-critical'
+      continue: true
+    - match_re:
+        alertname: 'SOS.*'
+      receiver: 'pagerduty-critical'
+
+receivers:
+  - name: 'slack-critical'
+    slack_configs:
+      - api_url: '${SLACK_CRITICAL_WEBHOOK_URL}'  # From Vault/env
+        channel: '#safeguard-alerts-critical'
+        title: '{{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+
+  - name: 'slack-warning'
+    slack_configs:
+      - api_url: '${SLACK_WARNING_WEBHOOK_URL}'
+        channel: '#safeguard-alerts'
+        title: '{{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+
+  - name: 'slack-sos-critical'
+    slack_configs:
+      - api_url: '${SLACK_SOS_WEBHOOK_URL}'
+        channel: '#safeguard-sos-alerts'
+        title: '🚨 SOS CRITICAL: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'  # From Vault/env
+        severity: '{{ if eq .GroupLabels.severity "critical" }}critical{{ else }}warning{{ end }}'
+        description: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'namespace']

@@ -1,0 +1,58 @@
+# ============================================
+# SAFEGUARD - Helm values-production.yaml
+# Auth Service - Production Environment
+# ============================================
+
+replicaCount: 2
+
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 75
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+vault:
+  enabled: true
+  role: auth-service
+  path: safeguard/secret/production
+
+env:
+  - name: SPRING_PROFILES_ACTIVE
+    value: "production"
+  - name: VAULT_ENV
+    value: "production"
+  - name: LOG_LEVEL
+    value: "WARN"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    nginx.ingress.kubernetes.io/rate-limit: "200"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: auth-api.safeguard.gov.in
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: auth-production-tls
+      hosts:
+        - auth-api.safeguard.gov.in
+
+namespace: safeguard-production

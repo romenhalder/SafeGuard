@@ -1,0 +1,52 @@
+# ============================================
+# SAFEGUARD - Helm values-staging.yaml
+# Auth Service - Staging Environment
+# ============================================
+
+replicaCount: 1
+
+resources:
+  requests:
+    memory: "384Mi"
+    cpu: "200m"
+  limits:
+    memory: "768Mi"
+    cpu: "500m"
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+vault:
+  enabled: true
+  role: auth-service
+  path: safeguard/secret/staging
+
+env:
+  - name: SPRING_PROFILES_ACTIVE
+    value: "staging"
+  - name: VAULT_ENV
+    value: "staging"
+  - name: LOG_LEVEL
+    value: "INFO"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: auth-api.staging.safeguard.gov.in
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: auth-staging-tls
+      hosts:
+        - auth-api.staging.safeguard.gov.in
+
+namespace: safeguard-staging

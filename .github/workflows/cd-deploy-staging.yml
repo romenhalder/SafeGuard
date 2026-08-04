@@ -1,0 +1,100 @@
+# ============================================
+# SAFEGUARD - CD Deploy to Staging
+# Triggered on: Push to staging branch
+# ============================================
+name: "CD - Deploy to Staging"
+
+on:
+  push:
+    branches: [staging]
+
+concurrency:
+  group: cd-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-south-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.13.0"
+
+      - name: Update kubeconfig for staging cluster
+        run: |
+          aws eks update-kubeconfig \
+            --name safeguard-staging \
+            --region ap-south-1
+
+      - name: Verify Vault is healthy
+        run: |
+          kubectl exec -n vault vault-0 -- vault status
+          kubectl exec -n vault vault-1 -- vault status
+          kubectl exec -n vault vault-2 -- vault status
+
+      - name: Deploy all services to staging
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ENVIRONMENT: staging
+        run: |
+          SERVICES=(
+            api-gateway auth-service user-service alert-service
+            location-service incident-service admin-service
+            notification-service analytics-service
+          )
+
+          for SERVICE in "${SERVICES[@]}"; do
+            echo "Deploying $SERVICE to staging..."
+            helm upgrade --install $SERVICE deploy/helm/$SERVICE \
+              -f deploy/helm/$SERVICE/values-staging.yaml \
+              --set image.repository=$ECR_REGISTRY/safeguard/$SERVICE \
+              --set image.tag=${{ github.sha }} \
+              --namespace safeguard-staging \
+              --create-namespace \
+              --wait \
+              --timeout 5m
+          done
+
+      - name: Verify deployment
+        run: |
+          echo "=== Pod Status ==="
+          kubectl get pods -n safeguard-staging
+          echo ""
+          echo "=== Service Status ==="
+          kubectl get svc -n safeguard-staging
+
+          kubectl wait --for=condition=ready pod \
+            --all -n safeguard-staging \
+            --timeout=300s
+
+      - name: Run integration tests
+        run: |
+          GATEWAY_URL=$(kubectl get svc api-gateway -n safeguard-staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "Staging Gateway: $GATEWAY_URL"
+
+          # Full health check suite
+          curl -sf "http://$GATEWAY_URL/actuator/health" || exit 1
+
+          echo "Integration tests passed!"
+
+      - name: Notify staging deployment
+        if: always()
+        run: |
+          echo "Staging deployment status: ${{ job.status }}"

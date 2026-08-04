@@ -1,0 +1,16 @@
+# ============================================
+# SAFEGUARD - Grafana Dashboard Provisioning
+# ============================================
+
+apiVersion: 1
+
+providers:
+  - name: 'SafeGuard Dashboards'
+    orgId: 1
+    folder: 'SafeGuard'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

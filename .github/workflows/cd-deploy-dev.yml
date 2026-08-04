@@ -1,0 +1,107 @@
+# ============================================
+# SAFEGUARD - CD Deploy to Development
+# Triggered on: Push to develop (after CI passes)
+# ============================================
+name: "CD - Deploy to Development"
+
+on:
+  workflow_run:
+    workflows: ["CI - Build & Test"]
+    types: [completed]
+    branches: [develop]
+
+# Only run if CI passed
+concurrency:
+  group: cd-dev
+  cancel-in-progress: true
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-south-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.13.0"
+
+      - name: Update kubeconfig for dev cluster
+        run: |
+          aws eks update-kubeconfig \
+            --name safeguard-dev \
+            --region ap-south-1
+
+      - name: Initialize Vault (dev)
+        run: |
+          kubectl exec -n vault vault-0 -- vault status || true
+          # Seed secrets if Vault is initialized
+          ./deploy/vault/init/seed-secrets.sh dev || true
+
+      - name: Deploy all services to dev
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ENVIRONMENT: dev
+        run: |
+          SERVICES=(
+            api-gateway auth-service user-service alert-service
+            location-service incident-service admin-service
+            notification-service analytics-service
+          )
+
+          for SERVICE in "${SERVICES[@]}"; do
+            echo "Deploying $SERVICE to dev..."
+            helm upgrade --install $SERVICE deploy/helm/$SERVICE \
+              -f deploy/helm/$SERVICE/values-dev.yaml \
+              --set image.repository=$ECR_REGISTRY/safeguard/$SERVICE \
+              --set image.tag=${{ github.sha }} \
+              --namespace safeguard-dev \
+              --create-namespace \
+              --wait \
+              --timeout 5m
+          done
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n safeguard-dev
+          echo "---"
+          # Wait for all pods to be ready
+          kubectl wait --for=condition=ready pod \
+            --all -n safeguard-dev \
+            --timeout=300s
+
+      - name: Run smoke tests
+        run: |
+          # Get API Gateway URL
+          GATEWAY_URL=$(kubectl get svc api-gateway -n safeguard-dev -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "Gateway URL: $GATEWAY_URL"
+
+          # Health check
+          curl -sf "http://$GATEWAY_URL/actuator/health" || {
+            echo "Smoke test failed!"
+            exit 1
+          }
+          echo "Smoke tests passed!"
+
+      - name: Deployment status notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "Deployment to DEV successful!"
+          else
+            echo "Deployment to DEV failed!"
+          fi

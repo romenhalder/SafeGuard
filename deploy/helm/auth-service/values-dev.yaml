@@ -1,0 +1,39 @@
+# ============================================
+# SAFEGUARD - Helm values-dev.yaml
+# Auth Service - Development Environment
+# ============================================
+
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "250m"
+
+autoscaling:
+  enabled: false
+
+vault:
+  enabled: true
+  role: auth-service
+  path: safeguard/secret/dev
+
+env:
+  - name: SPRING_PROFILES_ACTIVE
+    value: "dev"
+  - name: VAULT_ADDR
+    value: "http://vault:8200"
+  - name: VAULT_ENV
+    value: "dev"
+  - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+    value: "http://eureka-server:8761/eureka/"
+  - name: LOG_LEVEL
+    value: "DEBUG"
+
+namespace: safeguard-dev

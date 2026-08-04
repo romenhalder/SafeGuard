@@ -1,0 +1,71 @@
+# ============================================
+# SAFEGUARD - Helm values.yaml (Default)
+# Auth Service
+# ============================================
+
+replicaCount: 1
+
+image:
+  repository: safeguard/auth-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+nameOverride: "auth-service"
+fullnameOverride: "safeguard-auth"
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "250m"
+
+autoscaling:
+  enabled: false
+
+vault:
+  enabled: true
+  role: auth-service
+  path: safeguard/secret/dev
+
+env:
+  - name: SPRING_PROFILES_ACTIVE
+    value: "local"
+  - name: VAULT_ADDR
+    value: "http://vault:8200"
+  - name: VAULT_ENV
+    value: "dev"
+  - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+    value: "http://eureka-server:8761/eureka/"
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health
+    port: 8080
+  initialDelaySeconds: 60
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}

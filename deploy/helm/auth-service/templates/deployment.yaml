@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "safeguard.fullname" . }}
+  labels:
+    {{- include "safeguard.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "safeguard.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "safeguard.labels" . | nindent 8 }}
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "{{ .Values.vault.role }}"
+        vault.hashicorp.com/agent-inject-secret-application: "{{ .Values.vault.path }}/app/jwt"
+        vault.hashicorp.com/agent-inject-template-application: |
+          {{`{{- with secret "`}}{{ .Values.vault.path }}/app/jwt`{{`" -}}
+          spring:
+            security:
+              jwt:
+                secret: {{ .Data.data.secret }}
+                refresh-secret: {{ .Data.data.refresh_secret }}
+                expiration: {{ .Data.data.expiration }}
+                refresh-expiration: {{ .Data.data.refresh_expiration }}
+          {{- end }}`}}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "safeguard.fullname" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ include "safeguard.imageTag" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          {{- with .Values.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "safeguard.fullname" . }}-config
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

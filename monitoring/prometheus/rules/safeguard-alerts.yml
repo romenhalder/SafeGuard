@@ -1,0 +1,156 @@
+# ============================================
+# SAFEGUARD - Prometheus Alert Rules
+# ============================================
+
+groups:
+  # ── Service Health ──
+  - name: safeguard_service_health
+    rules:
+      - alert: ServiceDown
+        expr: up{job="safeguard-services"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.pod }} is DOWN"
+          description: "SafeGuard service {{ $labels.pod }} has been down for more than 30 seconds."
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) by (pod)
+          / sum(rate(http_server_requests_seconds_count[5m])) by (pod) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on {{ $labels.pod }}"
+          description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.pod }}"
+
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, pod)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time on {{ $labels.pod }}"
+          description: "P95 response time is {{ $value }}s on {{ $labels.pod }}"
+
+  # ── SOS Alert Service (Critical) ──
+  - name: safeguard_sos_alerts
+    rules:
+      - alert: SOSAlertServiceDown
+        expr: up{pod=~".*alert-service.*"} == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "CRITICAL: SOS Alert Service is DOWN"
+          description: "The SOS alert service is unavailable. Emergency alerts may not be delivered."
+
+      - alert: SOSAlertProcessingSlow
+        expr: |
+          histogram_quantile(0.95, sum(rate(sos_alert_processing_seconds_bucket[5m])) by (le)) > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SOS alerts processing too slow"
+          description: "P95 SOS alert processing time is {{ $value }}s (should be < 5s)"
+
+      - alert: NoOfficerAvailable
+        expr: |
+          sum(safeguard_on_duty_officers_total) == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No officers on duty"
+          description: "There are no officers currently marked as on-duty."
+
+  # ── Database ──
+  - name: safeguard_database
+    rules:
+      - alert: PostgreSQLConnectionPoolExhausted
+        expr: |
+          hikaricp_connections_active / hikaricp_connections_max > 0.9
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connection pool near exhaustion"
+          description: "Connection pool usage is {{ $value | humanizePercentage }}"
+
+      - alert: PostgreSQLReplicationLag
+        expr: pg_replication_lag > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL replication lag detected"
+          description: "Replication lag is {{ $value }}s"
+
+      - alert: MongoDBReplicaSetStatus
+        expr: mongodb_mongod_replset_member_health_status != 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MongoDB replica set member unhealthy"
+          description: "MongoDB replica set member {{ $labels.instance }} is unhealthy"
+
+  # ── Redis ──
+  - name: safeguard_redis
+    rules:
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}"
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is DOWN"
+          description: "Redis instance is unreachable."
+
+  # ── Infrastructure ──
+  - name: safeguard_infrastructure
+    rules:
+      - alert: KubernetesPodCrashLooping
+        expr: |
+          rate(kube_pod_container_status_restarts_total{namespace=~"safeguard.*"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} is crash looping"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is restarting frequently."
+
+      - alert: HighCPUUsage
+        expr: |
+          sum(rate(container_cpu_usage_seconds_total{namespace=~"safeguard.*"}[5m])) by (pod)
+          / sum(kube_pod_container_resource_limits{resource="cpu", namespace=~"safeguard.*"}) by (pod) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.pod }}"
+          description: "CPU usage is {{ $value | humanizePercentage }}"
+
+      - alert: HighMemoryUsage
+        expr: |
+          sum(container_memory_working_set_bytes{namespace=~"safeguard.*"}) by (pod)
+          / sum(kube_pod_container_resource_limits{resource="memory", namespace=~"safeguard.*"}) by (pod) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.pod }}"
+          description: "Memory usage is {{ $value | humanizePercentage }}"

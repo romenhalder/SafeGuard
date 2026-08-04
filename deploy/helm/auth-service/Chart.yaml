@@ -1,0 +1,7 @@
+apiVersion: v2
+name: auth-service
+description: SafeGuard Auth Service - JWT, OTP, Login
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies: []

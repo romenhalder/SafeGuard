@@ -1,0 +1,207 @@
+# ============================================
+# SAFEGUARD - CI Build Pipeline
+# Triggered on: Pull Requests & Push to develop
+# ============================================
+name: "CI - Build & Test"
+
+on:
+  pull_request:
+    branches: [develop, staging, main]
+    paths:
+      - "services/**"
+      - "libs/**"
+      - "pom.xml"
+      - ".github/workflows/ci-build.yml"
+  push:
+    branches: [develop]
+    paths:
+      - "services/**"
+      - "libs/**"
+      - "pom.xml"
+
+# Cancel in-progress runs for same branch
+concurrency:
+  group: ci-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "17"
+  MAVEN_OPTS: "-Xmx1024m"
+
+jobs:
+
+  # ═══════════════════════════════════════════
+  #  DETECT CHANGED SERVICES
+  # ═══════════════════════════════════════════
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.changes.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed services
+        id: changes
+        run: |
+          CHANGED_SERVICES=$(git diff --name-only HEAD~1 HEAD | grep -oP 'services/\K[^/]+' | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          echo "services=$CHANGED_SERVICES" >> "$GITHUB_OUTPUT"
+          echo "Changed services: $CHANGED_SERVICES"
+
+  # ═══════════════════════════════════════════
+  #  BUILD & TEST SERVICES
+  # ═══════════════════════════════════════════
+  build-and-test:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - user-service
+          - alert-service
+          - location-service
+          - incident-service
+          - admin-service
+          - notification-service
+          - analytics-service
+          - service-registry
+          - config-server
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Build parent + shared library
+        run: mvn clean install -DskipTests -pl libs/safeguard-common -am -B
+
+      - name: Build & Test ${{ matrix.service }}
+        run: |
+          mvn clean verify \
+            -pl services/${{ matrix.service }} \
+            -am \
+            -B \
+            -Dmaven.test.failure.ignore=false
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.service }}
+          path: services/${{ matrix.service }}/target/surefire-reports/
+          retention-days: 7
+
+      - name: Upload JAR artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jar-${{ matrix.service }}
+          path: services/${{ matrix.service }}/target/*.jar
+          retention-days: 3
+
+  # ═══════════════════════════════════════════
+  #  SECURITY SCAN
+  # ═══════════════════════════════════════════
+  security-scan:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run OWASP Dependency Check
+        run: mvn org.owasp:dependency-check-maven:check -B -DfailBuildOnCVSS=7
+
+      - name: Upload security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: target/dependency-check-report.html
+          retention-days: 30
+
+  # ═══════════════════════════════════════════
+  #  BUILD & PUSH DOCKER IMAGES (develop only)
+  # ═══════════════════════════════════════════
+  docker-build:
+    needs: [build-and-test, security-scan]
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - user-service
+          - alert-service
+          - location-service
+          - incident-service
+          - admin-service
+          - notification-service
+          - analytics-service
+          - service-registry
+          - config-server
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jar-${{ matrix.service }}
+          path: services/${{ matrix.service }}/target/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-south-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SERVICE: ${{ matrix.service }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            --build-arg SERVICE_NAME=$SERVICE \
+            -t $ECR_REGISTRY/safeguard/$SERVICE:$IMAGE_TAG \
+            -t $ECR_REGISTRY/safeguard/$SERVICE:latest \
+            -f docker/Dockerfile \
+            .
+
+          docker push $ECR_REGISTRY/safeguard/$SERVICE:$IMAGE_TAG
+          docker push $ECR_REGISTRY/safeguard/$SERVICE:latest
+
+  # ═══════════════════════════════════════════
+  #  CI COMPLETE NOTIFICATION
+  # ═══════════════════════════════════════════
+  notify:
+    needs: [build-and-test, security-scan, docker-build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: CI Status
+        run: |
+          if [ "${{ needs.build-and-test.result }}" = "failure" ] || [ "${{ needs.security-scan.result }}" = "failure" ]; then
+            echo "CI FAILED"
+            exit 1
+          fi
+          echo "CI PASSED"

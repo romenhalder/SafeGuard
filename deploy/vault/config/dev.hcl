@@ -1,0 +1,18 @@
+# ============================================
+# SAFEGUARD - Vault Dev Configuration
+# ============================================
+
+ui = true
+disable_mlock = true
+
+storage "file" {
+  path = "/vault/file"
+}
+
+listener "tcp" {
+  address     = "0.0.0.0:8200"
+  tls_disable = 1  # TLS terminated at Ingress in K8s
+}
+
+api_addr = "http://0.0.0.0:8200"
+cluster_addr = "https://0.0.0.0:8201"
