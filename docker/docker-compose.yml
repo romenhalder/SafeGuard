@@ -16,6 +16,10 @@ x-common-env: &common-env
   VAULT_ADDR: http://vault:8200
   VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN_ID:-dev-root-token}
   VAULT_ENV: dev
+  # Managed external services (empty defaults -> local infra containers)
+  POSTGRES_JDBC_URL: ${POSTGRES_JDBC_URL:-}
+  REDIS_URL: ${REDIS_URL:-}
+  MONGO_URI: ${MONGO_URI:-}
 
 services:
 
