@@ -47,7 +47,7 @@ public class Officer {
     @Column
     private LocalDateTime lastLocationUpdate;
 
-    @Column(nullable = false)
+    @Column(name = "is_active", nullable = false)
     private boolean active;
 
     @CreationTimestamp

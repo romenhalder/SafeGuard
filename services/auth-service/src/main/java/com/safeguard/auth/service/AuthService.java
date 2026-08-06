@@ -34,7 +34,7 @@ public class AuthService {
     private final AdminUserRepository adminUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final RedisTemplate<String, String> redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     private static final String OTP_PREFIX = "safeguard:otp:";
     private static final String REFRESH_PREFIX = "safeguard:refresh:";
@@ -164,9 +164,9 @@ public class AuthService {
         }
 
         String username = jwtTokenProvider.getUsernameFromToken(token);
-        String storedToken = redisTemplate.opsForValue().get(REFRESH_PREFIX + username);
+        Object stored = redisTemplate.opsForValue().get(REFRESH_PREFIX + username);
 
-        if (storedToken == null || !storedToken.equals(token)) {
+        if (stored == null || !stored.equals(token)) {
             throw new UnauthorizedException("Refresh token expired or revoked");
         }
 

@@ -34,7 +34,7 @@ public class Citizen {
     @Column(length = 64)
     private String aadhaarHash;
 
-    @Column(nullable = false)
+    @Column(name = "is_verified", nullable = false)
     private boolean verified;
 
     @Column(nullable = false)

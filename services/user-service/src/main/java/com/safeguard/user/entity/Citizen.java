@@ -19,6 +19,6 @@ public class Citizen {
     @Column(nullable = false, unique = true, length = 15) private String phone;
     @Column(length = 100) private String email;
     @Column(columnDefinition = "TEXT") private String address;
-    @Column(nullable = false) private boolean verified;
+    @Column(name = "is_verified", nullable = false) private boolean verified;
     @CreationTimestamp @Column(updatable = false) private LocalDateTime createdAt;
 }

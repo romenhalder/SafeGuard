@@ -4,8 +4,10 @@ server:
 spring:
   application:
     name: auth-service
+  config:
+    import: optional:configserver:${SPRING_CLOUD_CONFIG_URI:http://localhost:8888}
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:safeguard_dev}
+    url: ${POSTGRES_JDBC_URL:jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:safeguard_dev}}
     username: ${POSTGRES_USER:safeguard}
     password: ${POSTGRES_PASSWORD:localdev123}
     driver-class-name: org.postgresql.Driver
@@ -16,7 +18,7 @@ spring:
       connection-timeout: 20000
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
     show-sql: false
     properties:
       hibernate:
@@ -28,9 +30,10 @@ spring:
     baseline-on-migrate: true
   data:
     redis:
+      url: ${REDIS_URL:}
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD:localdev123}
 
 app:
   jwt:

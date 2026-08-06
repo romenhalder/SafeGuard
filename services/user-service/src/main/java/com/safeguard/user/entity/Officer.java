@@ -24,6 +24,6 @@ public class Officer {
     @Column(name = "assigned_zone_id") private UUID assignedZoneId;
     @Column(columnDefinition = "geometry(Point,4326)") private Object currentLocation;
     private LocalDateTime lastLocationUpdate;
-    @Column(nullable = false) private boolean active;
+    @Column(name = "is_active", nullable = false) private boolean active;
     @CreationTimestamp @Column(updatable = false) private LocalDateTime createdAt;
 }
