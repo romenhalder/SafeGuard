@@ -19,12 +19,15 @@ spring:
           uri: lb:ws://notification-service
           predicates:
             - Path=/ws/**
-
+    vault:
+      enabled: false
+    config:
+      fail-fast: false
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      url: ${REDIS_URL:redis://localhost:6379}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
 
 eureka:
   client:
@@ -35,7 +38,7 @@ eureka:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:defaultSecretKeyThatShouldBeReplacedInProduction1234567890}
+    secret: ${JWT_SECRET:ZGVmYXVsdFNlY3JldEtleVRoYXRTaG91bGRCZVJlcGxhY2VkSW5Qcm9kdWN0aW9u}
 
 management:
   endpoints:
@@ -50,4 +53,4 @@ management:
 
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
