@@ -15,7 +15,7 @@ public interface SosIncidentRepository extends JpaRepository<SosIncident, UUID> 
     long countByStatus(String status);
     long countByCreatedAtAfter(LocalDateTime date);
 
-    @Query("SELECT AVG(FUNCTION('EXTRACT', 'EPOCH', s.officerAcceptedAt - s.alertSentAt)) FROM SosIncident s WHERE s.officerAcceptedAt IS NOT NULL AND s.alertSentAt IS NOT NULL AND s.createdAt BETWEEN :start AND :end")
+    @Query(value = "SELECT AVG(EXTRACT(EPOCH FROM (officer_accepted_at - alert_sent_at)))::float8 FROM sos_incidents WHERE officer_accepted_at IS NOT NULL AND alert_sent_at IS NOT NULL AND created_at BETWEEN :start AND :end", nativeQuery = true)
     Double getAverageResponseTime(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Query("SELECT i.incidentType, COUNT(i) FROM SosIncident i WHERE i.createdAt BETWEEN :start AND :end GROUP BY i.incidentType ORDER BY COUNT(i) DESC")
