@@ -5,20 +5,22 @@ spring:
   application:
     name: config-server
   profiles:
-    active: native
+    active: native,local
   cloud:
     config:
       server:
         native:
           search-locations: classpath:/config
-      fail-on-fast-fail: true
+      fail-fast: false
     inetutils:
       ignored-interfaces: eth.*
+    vault:
+      enabled: false
 
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
 
