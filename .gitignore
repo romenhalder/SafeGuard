@@ -204,3 +204,6 @@ codecov.yml
 **/application-production.yml
 **/application-production.yaml
 **/application-production.properties
+
+graphify-out/
+pids.json
