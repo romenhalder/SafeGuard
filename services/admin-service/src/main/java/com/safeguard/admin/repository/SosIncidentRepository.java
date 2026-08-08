@@ -12,6 +12,8 @@ import java.util.UUID;
 @Repository
 public interface SosIncidentRepository extends JpaRepository<SosIncident, UUID> {
     List<SosIncident> findByStatus(String status);
+    List<SosIncident> findByStatusAndIncidentType(String status, String incidentType);
+    List<SosIncident> findAllByOrderByCreatedAtDesc();
     long countByStatus(String status);
     long countByCreatedAtAfter(LocalDateTime date);
 

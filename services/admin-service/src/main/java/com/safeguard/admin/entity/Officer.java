@@ -1,8 +1,11 @@
 package com.safeguard.admin.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.locationtech.jts.geom.Point;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -21,8 +24,17 @@ public class Officer {
     @Column(nullable = false, length = 15) private String phone;
     @Column(length = 30) private String badgeNumber;
     @Column(length = 20) private String dutyStatus;
-    @Column(columnDefinition = "geometry(Point,4326)") private Object currentLocation;
+    @JsonIgnore
+    @Column(columnDefinition = "geometry(Point,4326)") private Point currentLocation;
     private LocalDateTime lastLocationUpdate;
-    @Column(name = "is_active", nullable = false) private boolean active;
+    @Column(name = "is_active", nullable = false) private boolean active = true;
     @CreationTimestamp @Column(updatable = false) private LocalDateTime createdAt;
+
+    public Double getLatitude() {
+        return currentLocation != null ? currentLocation.getY() : null;
+    }
+
+    public Double getLongitude() {
+        return currentLocation != null ? currentLocation.getX() : null;
+    }
 }

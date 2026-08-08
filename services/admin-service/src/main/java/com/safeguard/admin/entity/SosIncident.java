@@ -1,8 +1,11 @@
 package com.safeguard.admin.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.locationtech.jts.geom.Point;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -18,7 +21,8 @@ public class SosIncident {
     @Column(nullable = false) private UUID citizenId;
     @Column(length = 50) private String incidentType;
     @Column(columnDefinition = "TEXT") private String description;
-    @Column(columnDefinition = "geometry(Point,4326)", nullable = false) private Object location;
+    @JsonIgnore
+    @Column(columnDefinition = "geometry(Point,4326)", nullable = false) private Point location;
     @Column(columnDefinition = "TEXT") private String addressText;
     @Column(length = 30) private String status;
     @Column(length = 20) private String priority;
@@ -29,4 +33,12 @@ public class SosIncident {
     private LocalDateTime resolvedAt;
     private Integer citizenRating;
     @CreationTimestamp @Column(updatable = false) private LocalDateTime createdAt;
+
+    public Double getLatitude() {
+        return location != null ? location.getY() : null;
+    }
+
+    public Double getLongitude() {
+        return location != null ? location.getX() : null;
+    }
 }
