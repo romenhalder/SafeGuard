@@ -1,43 +1,61 @@
-# ============================================================
-# SafeGuard - Stop All Local Services
-# ============================================================
+$ErrorActionPreference = "Continue"
 $ROOT = $PSScriptRoot
-$pidFile = Join-Path $ROOT ".running-pids.json"
+$pidFile = Join-Path $ROOT "pids.json"
 
-function Write-Ok   { param($msg) Write-Host "  ✔ $msg" -ForegroundColor Green }
-function Write-Info { param($msg) Write-Host "  ℹ $msg" -ForegroundColor DarkGray }
-function Write-Warn { param($msg) Write-Host "  ⚠ $msg" -ForegroundColor Yellow }
+function Write-Ok   { param($msg) Write-Host "  [OK] $msg" -ForegroundColor Green }
+function Write-Info { param($msg) Write-Host "  [..] $msg" -ForegroundColor DarkGray }
+function Write-Warn { param($msg) Write-Host "  [!!] $msg" -ForegroundColor Yellow }
 
-Write-Host "`n╔══════════════════════════════════════╗" -ForegroundColor Red
-Write-Host "║  SafeGuard — Stopping All Services  ║" -ForegroundColor Red
-Write-Host "╚══════════════════════════════════════╝`n" -ForegroundColor Red
+Write-Host ""
+Write-Host "================================================" -ForegroundColor Red
+Write-Host "  SafeGuard -- Stopping All Services" -ForegroundColor Red
+Write-Host "================================================" -ForegroundColor Red
+Write-Host ""
 
+# Kill only SafeGuard java processes (those whose cmdline points at this project's target jars)
+$javaProcs = Get-CimInstance Win32_Process -Filter "Name='java.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and $_.CommandLine -match [regex]::Escape($ROOT) -and $_.CommandLine -match "safeguard.*\.jar" }
+
+$killed = @()
+foreach ($p in $javaProcs) {
+    Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+    $killed += $p.ProcessId
+}
+
+# Also honor pids.json (real java PIDs written by start-local.ps1)
 if (Test-Path $pidFile) {
-    $pids = Get-Content $pidFile | ConvertFrom-Json
-    foreach ($name in $pids.PSObject.Properties.Name) {
-        $pid = $pids.$name
-        try {
-            $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
-            if ($proc) {
-                Stop-Process -Id $pid -Force
-                Write-Ok "Stopped $name (PID $pid)"
+    try { $pidData = Get-Content $pidFile -Raw | ConvertFrom-Json } catch { $pidData = $null }
+    if ($pidData) {
+        foreach ($name in $pidData.PSObject.Properties.Name) {
+            $id = [int]$pidData.$name
+            if ($killed -contains $id) { continue }
+            if (Get-Process -Id $id -ErrorAction SilentlyContinue) {
+                Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+                $killed += $id
+                Write-Ok "Stopped $name (PID $id)"
             } else {
-                Write-Info "$name (PID $pid) was already stopped"
+                Write-Info "$name (PID $id) already stopped"
             }
-        } catch {
-            Write-Warn "Could not stop $name (PID $pid): $_"
         }
     }
-    Remove-Item $pidFile -Force
-} else {
-    Write-Warn "No .running-pids.json found — trying to kill any SafeGuard JVM processes ..."
-    $javaProcs = Get-Process java -ErrorAction SilentlyContinue
-    if ($javaProcs) {
-        $javaProcs | Stop-Process -Force
-        Write-Ok "Stopped $($javaProcs.Count) java process(es)"
-    } else {
-        Write-Info "No java processes found"
+    Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+}
+
+if ($killed.Count -eq 0) { Write-Info "No running SafeGuard java processes found." }
+else { Write-Ok "Stopped $($killed.Count) SafeGuard java process(es)." }
+
+# Optional: sweep any orphaned PIDs still listening on SafeGuard ports
+$ports = 8080..8088 + 8761 + 8888
+foreach ($port in $ports) {
+    $conn = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue
+    if ($conn) {
+        $pid = $conn[0].OwningProcess
+        $procName = (Get-Process -Id $pid -ErrorAction SilentlyContinue).ProcessName
+        if ($procName -eq "java") {
+            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+            Write-Ok "Freed port $port (PID $pid)"
+        }
     }
 }
 
-Write-Host "`n  All SafeGuard services stopped.`n" -ForegroundColor Green
+Write-Host ""

@@ -7,7 +7,7 @@
 ## Project Overview
 
 SafeGuard is a multi-microservice emergency response platform.
-Backend: Java 17 + Spring Boot 3.x
+Backend: Java 21 + Spring Boot 3.x
 Frontend: Android (native) + React.js (Admin Dashboard)
 Infra: Docker + Kubernetes + HashiCorp Vault + Terraform
 

@@ -214,7 +214,7 @@ Super Admin (National/State Level)
 | Accept / Reject Alert | Officer responds |
 | Navigation | In-app directions to citizen |
 | Incident Notes | Quick text/photo note after resolution |
-| Communication Log | All incident history |
+| Communication Log | ll incident history |
 
 ### Module 3 — Admin Web Dashboard
 
