@@ -3,6 +3,7 @@ package com.safeguard.admin.service;
 import com.safeguard.admin.dto.DashboardOverview;
 import com.safeguard.admin.entity.Officer;
 import com.safeguard.admin.entity.PatrolZone;
+import com.safeguard.admin.entity.SosIncident;
 import com.safeguard.admin.repository.OfficerRepository;
 import com.safeguard.admin.repository.PatrolZoneRepository;
 import com.safeguard.admin.repository.SosIncidentRepository;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -93,5 +95,20 @@ public class AdminService {
     @Transactional
     public PatrolZone createZone(PatrolZone zone) {
         return patrolZoneRepository.save(zone);
+    }
+
+    public List<SosIncident> getIncidents(String status, String incidentType) {
+        if (StringUtils.hasText(status) && StringUtils.hasText(incidentType)) {
+            return sosIncidentRepository.findByStatusAndIncidentType(status, incidentType);
+        }
+        if (StringUtils.hasText(status)) {
+            return sosIncidentRepository.findByStatus(status);
+        }
+        return sosIncidentRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    public SosIncident getIncident(UUID id) {
+        return sosIncidentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Incident", "id", id));
     }
 }

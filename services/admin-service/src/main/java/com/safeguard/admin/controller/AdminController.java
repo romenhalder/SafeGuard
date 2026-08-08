@@ -3,6 +3,7 @@ package com.safeguard.admin.controller;
 import com.safeguard.admin.dto.DashboardOverview;
 import com.safeguard.admin.entity.Officer;
 import com.safeguard.admin.entity.PatrolZone;
+import com.safeguard.admin.entity.SosIncident;
 import com.safeguard.admin.service.AdminService;
 import com.safeguard.common.util.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -71,5 +72,17 @@ public class AdminController {
     public ResponseEntity<ApiResponse<PatrolZone>> createZone(@RequestBody PatrolZone zone) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Zone created", adminService.createZone(zone)));
+    }
+
+    @GetMapping("/incidents")
+    public ResponseEntity<ApiResponse<List<SosIncident>>> getIncidents(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String incidentType) {
+        return ResponseEntity.ok(ApiResponse.success(adminService.getIncidents(status, incidentType)));
+    }
+
+    @GetMapping("/incidents/{id}")
+    public ResponseEntity<ApiResponse<SosIncident>> getIncident(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(adminService.getIncident(id)));
     }
 }
