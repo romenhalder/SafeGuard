@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!--
+      SafeGuard OWASP Dependency-Check suppressions.
+      Add a suppress block per known-false-positive / accepted-risk finding:
+        <suppress>
+            <notes>Explain why this is acceptable</notes>
+            <packageUrl regex="true">^pkg:maven/...</packageUrl>
+            <cve>CVE-YYYY-XXXX</cve>
+        </suppress>
+    -->
+</suppressions>

@@ -4,7 +4,7 @@
 # ============================================
 
 # ── STAGE 1: Build ──
-FROM maven:3.9-eclipse-temurin-17 AS builder
+FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /app
 
 # Copy parent POM first (better layer caching)
@@ -35,7 +35,7 @@ ARG SERVICE_NAME
 RUN mvn clean package -DskipTests -pl services/${SERVICE_NAME} -am -B
 
 # ── STAGE 2: Runtime ──
-FROM eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:21-jre-jammy
 
 # Security: non-root user
 RUN groupadd -r safeguard && useradd -r -g safeguard -d /app -s /sbin/nologin safeguard
