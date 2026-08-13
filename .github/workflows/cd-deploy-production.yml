@@ -7,10 +7,6 @@ name: "CD - Deploy to Production"
 on:
   workflow_dispatch:
     inputs:
-      image_tag:
-        description: "Docker image tag (commit SHA or version)"
-        required: true
-        default: "latest"
       service:
         description: "Service to deploy (or 'all')"
         required: true
@@ -44,7 +40,6 @@ jobs:
         run: |
           echo "Production deployment approved"
           echo "Deploying: ${{ inputs.service }}"
-          echo "Image tag: ${{ inputs.image_tag }}"
 
   # ═══════════════════════════════════════════
   #  DEPLOY TO PRODUCTION
@@ -63,10 +58,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ap-south-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Install Helm
         uses: azure/setup-helm@v4
@@ -89,8 +80,6 @@ jobs:
 
       - name: Deploy to production
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ inputs.image_tag }}
           TARGET_SERVICE: ${{ inputs.service }}
         run: |
           SERVICES=(
@@ -109,8 +98,6 @@ jobs:
             echo "Deploying $SERVICE to PRODUCTION..."
             helm upgrade --install $SERVICE deploy/helm/$SERVICE \
               -f deploy/helm/$SERVICE/values-production.yaml \
-              --set image.repository=$ECR_REGISTRY/safeguard/$SERVICE \
-              --set image.tag=$IMAGE_TAG \
               --namespace safeguard-production \
               --create-namespace \
               --wait \
@@ -167,7 +154,6 @@ jobs:
           echo "PRODUCTION DEPLOYMENT SUMMARY"
           echo "=========================================="
           echo "Service: ${{ inputs.service }}"
-          echo "Image Tag: ${{ inputs.image_tag }}"
           echo "Status: ${{ job.status }}"
           echo "Time: $(date)"
           echo "=========================================="
