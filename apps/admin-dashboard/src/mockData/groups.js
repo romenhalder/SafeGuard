@@ -1,0 +1,61 @@
+// ============================================
+// SAFEGUARD — Mock Officer Groups Data
+// ============================================
+
+export const mockGroups = [
+  {
+    id: 'grp-001',
+    name: 'Night Patrol Team A',
+    description: 'Zone A night shift patrol officers',
+    zone: 'Zone A — Esplanade',
+    shift: 'Night',
+    specialty: null,
+    officerIds: ['off-001', 'off-002', 'off-003', 'off-004', 'off-005'],
+    createdAt: new Date('2024-01-15'),
+    activeCount: 4,
+  },
+  {
+    id: 'grp-002',
+    name: 'Medical Response Unit',
+    description: 'Officers trained in medical emergency response',
+    zone: null,
+    shift: null,
+    specialty: 'Medical Response',
+    officerIds: ['off-006', 'off-012', 'off-018', 'off-024', 'off-030', 'off-036'],
+    createdAt: new Date('2024-02-20'),
+    activeCount: 5,
+  },
+  {
+    id: 'grp-003',
+    name: 'Riot Control Squad',
+    description: 'Specially trained riot control officers across all zones',
+    zone: null,
+    shift: null,
+    specialty: 'Riot Control',
+    officerIds: ['off-007', 'off-014', 'off-021', 'off-028'],
+    createdAt: new Date('2024-03-10'),
+    activeCount: 3,
+  },
+  {
+    id: 'grp-004',
+    name: 'Howrah Evening Patrol',
+    description: 'Zone B evening shift officers',
+    zone: 'Zone B — Howrah',
+    shift: 'Evening',
+    specialty: null,
+    officerIds: ['off-009', 'off-010', 'off-011', 'off-013'],
+    createdAt: new Date('2024-04-05'),
+    activeCount: 4,
+  },
+  {
+    id: 'grp-005',
+    name: 'VIP Security Detail',
+    description: 'Officers certified for VIP protection duties',
+    zone: null,
+    shift: null,
+    specialty: 'VIP Security',
+    officerIds: ['off-015', 'off-016', 'off-017'],
+    createdAt: new Date('2024-05-01'),
+    activeCount: 2,
+  },
+];

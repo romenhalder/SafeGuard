@@ -1,0 +1,105 @@
+/* Button Component */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Sizes */
+.btn-sm { font-size: var(--text-xs); padding: 5px 10px; }
+.btn-md { font-size: var(--text-sm); padding: 8px 16px; }
+.btn-lg { font-size: var(--text-base); padding: 10px 20px; }
+.btn-full { width: 100%; }
+
+/* Variants */
+.btn-primary {
+  background: var(--accent-blue);
+  color: white;
+  border-color: var(--accent-blue);
+}
+.btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  border-color: var(--border-active);
+}
+
+.btn-danger {
+  background: var(--accent-red);
+  color: white;
+  border-color: var(--accent-red);
+}
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+  box-shadow: var(--shadow-glow-red);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.btn-success {
+  background: var(--accent-green);
+  color: white;
+  border-color: var(--accent-green);
+}
+.btn-success:hover:not(:disabled) {
+  background: #059669;
+  box-shadow: var(--shadow-glow-green);
+}
+
+.btn-warning {
+  background: var(--accent-amber);
+  color: #0a0e1a;
+  border-color: var(--accent-amber);
+}
+.btn-warning:hover:not(:disabled) { background: #d97706; }
+
+.btn-outline {
+  background: transparent;
+  color: var(--accent-blue-light);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+.btn-outline:hover:not(:disabled) {
+  background: var(--accent-blue-dim);
+}
+
+.btn-purple {
+  background: var(--accent-purple);
+  color: white;
+  border-color: var(--accent-purple);
+}
+.btn-purple:hover:not(:disabled) { background: #7c3aed; }
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+}
