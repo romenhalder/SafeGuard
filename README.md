@@ -44,7 +44,7 @@ SafeGuard is built using a modern microservices architecture designed for high a
 * **Frontend:** React.js (Admin Dashboard), Flutter / Native (Mobile Apps)
 * **Databases:** PostgreSQL (Primary), PostGIS (Geospatial), MongoDB (Incident Logs), Redis (Cache & Real-time state)
 * **Messaging:** Apache Kafka (Async alerts & GPS streaming)
-* **Infrastructure:** Docker, Kubernetes (EKS/Minikube), Terraform, HashiCorp Vault
+* **Infrastructure:** Kubernetes (EKS/Minikube), Terraform, HashiCorp Vault
 
 ---
 
@@ -56,7 +56,6 @@ safeguard/
 ├── apps/              # Android apps + React.js admin dashboard
 ├── libs/              # Shared Java libraries
 ├── deploy/            # Infrastructure as Code (Terraform), Helm charts, Vault configs
-├── docker/            # Dockerfiles & docker-compose configurations
 ├── monitoring/        # Prometheus, Grafana, Loki configurations
 ├── scripts/           # DevOps and utility scripts
 └── .github/           # CI/CD workflows
@@ -85,12 +84,14 @@ safeguard/
 ## 🛠️ Local Development & Setup
 
 ### Prerequisites
-* Docker & Docker Compose
 * Java 21 & Maven
 * Node.js (for frontend)
 * Make
 
-### Quick Start
+### Quick Start (Windows, no Docker)
+
+The local stack runs directly on Java 21 against cloud-managed databases
+(PostgreSQL/Neon, Redis/Upstash, MongoDB/Atlas) configured in `.env`.
 
 1. **Environment Setup**
    Copy `.env.example` to `.env` and fill in your local development values.
@@ -98,30 +99,25 @@ safeguard/
    cp .env.example .env
    ```
 
-2. **First-time setup & start Infrastructure (DBs, Redis, Vault)**
-   ```bash
-   make setup
-   make up-infra
-   ```
-
-3. **Initialize HashiCorp Vault (Secrets)**
-   ```bash
-   make vault-init
-   make vault-seed
-   ```
-
-4. **Build and Run Services**
+2. **Build Services**
    ```bash
    make build                 # Build all services
    make build-service SERVICE=auth-service  # Build a specific service
    ```
 
-5. **Start Everything**
+3. **Start All Services**
    ```bash
-   make up
+   .\start-local.ps1          # Starts all 11 Spring Boot services
+   .\stop-local.ps1           # Stops them
    ```
 
-*(For testing, use `mvn test` for unit tests and `mvn verify -Pintegration-tests` for integration tests.)*
+4. **Initialize HashiCorp Vault (Secrets)** *(optional)*
+   ```bash
+   make vault-init
+   make vault-seed
+   ```
+
+*(For testing, use `mvn test` for unit tests.)*
 
 ---
 

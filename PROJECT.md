@@ -78,7 +78,7 @@
 | Geospatial | Hibernate Spatial + JTS |
 | Frontend | React.js + Vite + TypeScript + Tailwind + Leaflet |
 | CI/CD | GitHub Actions (build, scan, deploy) |
-| Deploy (future) | Docker + Kubernetes + Helm + Terraform + Vault |
+| Deploy (future) | Kubernetes + Helm + Terraform + Vault |
 
 ---
 
@@ -93,7 +93,6 @@ safeguard/
 │   └── officer-app/       # (empty - planned)
 ├── libs/safeguard-common/ # Shared library (JWT, Redis, DTOs, exceptions)
 ├── deploy/             # Terraform, Helm charts, Vault configs
-├── docker/             # Dockerfile (Java 21) & Compose
 ├── monitoring/         # Prometheus, Grafana, Loki
 ├── scripts/            # DevOps utility scripts
 ├── .github/workflows/  # CI/CD pipelines
@@ -273,13 +272,11 @@ PostGIS is enabled via `CREATE EXTENSION IF NOT EXISTS postgis;` in the migratio
 - Trigger: PR to `develop/staging/main`; push to `develop` (paths: services/libs/pom.xml).
 - Detect changed services → matrix build+test per service (Java 21, Temurin).
 - OWASP Dependency Check (CVSS ≥ 7 fails; NVD API key optional).
-- Docker build + push to ECR (develop only).
 
 ### 8.2 `security-scan.yml` — Security Scan & Audit
 - **secret-scan** — Gitleaks + TruffleHog.
 - **dependency-scan** — OWASP Dependency Check with `.github/dependency-check-suppressions.xml`,
   NVD API key + delay to avoid rate limits.
-- **image-scan** — Trivy on built images (CRITICAL/HIGH).
 - **code-analysis** — **GitHub CodeQL** (Java, Java 21) — replaces SonarQube, no external secrets needed.
 
 ### 8.3 CD workflows
@@ -294,7 +291,7 @@ PostGIS is enabled via `CREATE EXTENSION IF NOT EXISTS postgis;` in the migratio
 - All **11 microservices** running locally on **Java 21** (no Docker).
 - Managed cloud infra wired: **Neon** Postgres/PostGIS, **Upstash** Redis, **Atlas** MongoDB.
 - `start-local.ps1` / `stop-local.ps1` — reliable local runner (JDK-21 pin, PID tracking, logs).
-- Java 21 migration (`pom.xml`, CI workflows, Dockerfile).
+- Java 21 migration (`pom.xml`, CI workflows).
 - PostGIS base schema via Flyway (auth-service).
 - Admin-service: JTS geometry (Officer lat/lng, Zone GeoJSON), `GET /api/admin/incidents`,
   Spring Security JWT on `/api/admin/**`.
