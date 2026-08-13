@@ -66,10 +66,6 @@ build/
 .factorypath
 *.code-workspace
 
-# ── DOCKER ──
-docker-compose.override.yml
-docker-compose.local.yml
-
 # ── KUBERNETES ──
 **/charts/*.tgz
 

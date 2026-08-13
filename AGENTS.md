@@ -9,7 +9,7 @@
 SafeGuard is a multi-microservice emergency response platform.
 Backend: Java 21 + Spring Boot 3.x
 Frontend: Android (native) + React.js (Admin Dashboard)
-Infra: Docker + Kubernetes + HashiCorp Vault + Terraform
+Infra: Kubernetes + HashiCorp Vault + Terraform (local dev runs directly on Java 21, no Docker)
 
 ## Repository Structure
 
@@ -22,7 +22,6 @@ safeguard/
 │   ├── terraform/     # Infrastructure as Code
 │   ├── helm/          # Kubernetes Helm charts
 │   └── vault/         # Vault configs & policies
-├── docker/            # Dockerfiles & Compose
 ├── monitoring/        # Prometheus, Grafana, Loki
 ├── scripts/           # DevOps utility scripts
 └── .github/           # CI/CD workflows
@@ -50,14 +49,14 @@ safeguard/
 # First-time setup
 make setup
 
-# Start local environment
-make up                    # Everything
-make up-infra              # Just DBs + Redis + Vault
-
 # Build & Test
 make build                 # Build all services
 make build-service SERVICE=auth-service  # Build one service
 make test                  # Run all tests
+
+# Local dev (Windows, no Docker)
+.\start-local.ps1          # Start all 11 services on Java 21
+.\stop-local.ps1           # Stop services
 
 # Vault
 make vault-init            # Initialize Vault
@@ -105,23 +104,21 @@ ci(github): add security scan workflow
 
 1. Copy `.env.example` to `.env`
 2. Fill in local dev values (not production!)
-3. Run `make up-infra` to start databases
-4. Run `make vault-init` to initialize Vault
-5. Run `make build-service SERVICE=auth-service`
-6. Run the service with Spring profile `local`
+3. Run `make build` to build all services (or `make build-service SERVICE=auth-service`)
+4. Run `.\start-local.ps1` to start all 11 services on Java 21 (no Docker)
+5. Run `.\stop-local.ps1` to stop them
 
 ## Testing
 
 - Unit tests: `mvn test`
-- Integration tests: `mvn verify -Pintegration-tests`
 - Load tests: k6 scripts in `scripts/load-tests/`
-- Security scans: `make security-scan`
+- Security scans: gitleaks + OWASP dependency-check (CI)
 
 ## Environment Values
 
 | Env | K8s | DB | Vault | Monitoring |
 |-----|-----|----|-------|------------|
-| dev | Minikube | Local Docker | Dev mode | Optional |
+| dev | Minikube | Cloud-managed (Neon/Upstash/Atlas) | Dev mode | Optional |
 | staging | EKS (3x t3.medium) | RDS | HA 3-node | Full stack |
 | production | EKS (3-6x m5.large) | RDS Multi-AZ | HA + auto-unseal | Full + alerts |
 
