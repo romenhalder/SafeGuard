@@ -144,69 +144,10 @@ jobs:
           retention-days: 30
 
   # ═══════════════════════════════════════════
-  #  BUILD & PUSH DOCKER IMAGES (develop only)
-  # ═══════════════════════════════════════════
-  docker-build:
-    needs: [build-and-test, security-scan]
-    if: github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      matrix:
-        service:
-          - api-gateway
-          - auth-service
-          - user-service
-          - alert-service
-          - location-service
-          - incident-service
-          - admin-service
-          - notification-service
-          - analytics-service
-          - service-registry
-          - config-server
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download JAR artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: jar-${{ matrix.service }}
-          path: services/${{ matrix.service }}/target/
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ap-south-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build & push Docker image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          SERVICE: ${{ matrix.service }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build \
-            --build-arg SERVICE_NAME=$SERVICE \
-            -t $ECR_REGISTRY/safeguard/$SERVICE:$IMAGE_TAG \
-            -t $ECR_REGISTRY/safeguard/$SERVICE:latest \
-            -f docker/Dockerfile \
-            .
-
-          docker push $ECR_REGISTRY/safeguard/$SERVICE:$IMAGE_TAG
-          docker push $ECR_REGISTRY/safeguard/$SERVICE:latest
-
-  # ═══════════════════════════════════════════
   #  CI COMPLETE NOTIFICATION
   # ═══════════════════════════════════════════
   notify:
-    needs: [build-and-test, security-scan, docker-build]
+    needs: [build-and-test, security-scan]
     if: always()
     runs-on: ubuntu-latest
     steps:
