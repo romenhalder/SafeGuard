@@ -23,24 +23,36 @@ spring:
       enabled: false
     config:
       fail-fast: false
-  data:
-    redis:
-      url: ${REDIS_URL:redis://localhost:6379}
-      ssl:
-        enabled: ${REDIS_SSL_ENABLED:false}
 
-eureka:
-  client:
-    service-url:
-      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
-  instance:
-    prefer-ip-address: true
-
-app:
-  jwt:
-    secret: ${JWT_SECRET:ZGVmYXVsdFNlY3JldEtleVRoYXRTaG91bGRCZVJlcGxhY2VkSW5Qcm9kdWN0aW9u}
-
-management:
+spring:
+  cloud:
+    circuitbreaker:
+      resilience4j:
+        circuitbreaker:
+          instances:
+            authCB:
+              slidingWindowSize: 20
+              minimumNumberOfCalls: 5
+              failureRateThreshold: 50
+              waitDurationInOpenState: 30s
+              permittedNumberOfCallsInHalfOpenState: 5
+              recordExceptions:
+                - java.util.concurrent.TimeoutException
+                - org.springframework.web.reactive.function.client.WebClientRequestException
+        timelimiter:
+          instances:
+            authCB:
+              timeoutDuration: 15s
+    gateway:
+      httpclient:
+        connect-timeout: 10s
+        response-timeout: 30s
+  eureka:
+    client:
+      service-url:
+        defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    instance:
+      prefer-ip-address: true
   endpoints:
     web:
       exposure:
@@ -48,6 +60,9 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    redis:
+      enabled: false
     gateway:
       enabled: true
 

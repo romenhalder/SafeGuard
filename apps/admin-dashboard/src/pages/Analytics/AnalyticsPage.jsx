@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useLiveStore } from '../../store/liveStore';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { TrendingUp, TrendingDown, Clock, Users, AlertTriangle, Star } from 'lucide-react';
+import * as analyticsService from '../../services/analyticsService';
 import './AnalyticsPage.css';
 
 const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444'];
@@ -15,13 +16,41 @@ const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'];
 export default function AnalyticsPage() {
   const { incidents, officers, zones } = useLiveStore();
 
+  // ── Real API analytics report ──────────────────────────────
+  const [apiReport, setApiReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(true);
+
+  useEffect(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    analyticsService.getAnalyticsReport(start, end)
+      .then(data => setApiReport(data))
+      .catch(() => { /* keep mock data */ })
+      .finally(() => setReportLoading(false));
+  }, []);
+
+  // ── Computed stats (use real if available, else compute from mock) ─
   const stats = useMemo(() => {
+    if (apiReport) {
+      return {
+        total: apiReport.totalSosAlerts ?? incidents.length,
+        resolved: apiReport.resolvedAlerts ?? 0,
+        avgResponse: apiReport.averageResponseTimeSeconds ?? 0,
+        totalHandled: apiReport.totalSosAlerts ?? 0,
+        avgRating: (apiReport.averageCitizenRating ?? 0).toFixed(1),
+      };
+    }
     const resolved = incidents.filter(i => ['RESOLVED', 'CLOSED'].includes(i.status));
-    const avgResponse = Math.floor(officers.reduce((a, o) => a + o.avgResponseTime, 0) / officers.length);
-    const totalHandled = officers.reduce((a, o) => a + o.incidentsHandled, 0);
-    const avgRating = (officers.reduce((a, o) => a + o.citizenRating, 0) / officers.length).toFixed(1);
+    const avgResponse = officers.length
+      ? Math.floor(officers.reduce((a, o) => a + (o.avgResponseTime ?? 0), 0) / officers.length)
+      : 0;
+    const totalHandled = officers.reduce((a, o) => a + (o.incidentsHandled ?? 0), 0);
+    const avgRating = officers.length
+      ? (officers.reduce((a, o) => a + (o.citizenRating ?? 0), 0) / officers.length).toFixed(1)
+      : '0.0';
     return { resolved: resolved.length, total: incidents.length, avgResponse, totalHandled, avgRating };
-  }, [incidents, officers]);
+  }, [apiReport, incidents, officers]);
 
   const incidentsByType = useMemo(() => {
     const counts = {};

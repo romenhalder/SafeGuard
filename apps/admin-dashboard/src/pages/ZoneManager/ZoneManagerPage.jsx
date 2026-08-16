@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Polygon, DrawingManager } from '@react-google-maps/api';
 import { useLiveStore } from '../../store/liveStore';
 import { mockZones, coverageGapAreas } from '../../mockData/zones';
+import * as zoneService from '../../services/zoneService';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import Modal, { ModalFooter } from '../../components/common/Modal';
@@ -27,7 +28,20 @@ export default function ZoneManagerPage() {
   const [drawingMode, setDrawingMode] = useState(false);
   const [comparisonView, setComparisonView] = useState(false);
   const [showGaps, setShowGaps] = useState(true);
+  const [newZonePaths, setNewZonePaths] = useState([]);
+  const [newZoneName, setNewZoneName] = useState('');
+  const [savingZone, setSavingZone] = useState(false);
   const mapRef = useState(null);
+
+  // ── Load zones from backend on mount ────────────────────────
+  useEffect(() => {
+    zoneService.getZones()
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data?.content ?? []);
+        if (list.length > 0) setZones(list);
+      })
+      .catch(() => { /* keep mock zones */ });
+  }, []);
 
   const { isLoaded } = useJsApiLoader({
     id: 'zone-manager-map',
@@ -37,9 +51,31 @@ export default function ZoneManagerPage() {
 
   const onPolygonComplete = useCallback((polygon) => {
     const paths = polygon.getPath().getArray().map(p => ({ lat: p.lat(), lng: p.lng() }));
+    setNewZonePaths(paths);
     polygon.setMap(null); // Remove drawing layer
     setShowCreateModal(true);
   }, []);
+
+  // ── Create zone handler ───────────────────────────────────
+  const handleCreateZone = async (e) => {
+    e.preventDefault();
+    setSavingZone(true);
+    try {
+      const created = await zoneService.createZone({
+        name: newZoneName,
+        paths: newZonePaths,
+        color: '#3b82f6',
+      });
+      setZones(prev => [...prev, created]);
+      setShowCreateModal(false);
+      setNewZoneName('');
+      setNewZonePaths([]);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to create zone');
+    } finally {
+      setSavingZone(false);
+    }
+  };
 
   return (
     <div className="zone-manager-page" id="zone-manager-page">

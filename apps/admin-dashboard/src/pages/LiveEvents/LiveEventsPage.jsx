@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLiveStore } from '../../store/liveStore';
 import { useAuthStore } from '../../store/authStore';
 import { INCIDENT_STATUS, INCIDENT_TYPES } from '../../mockData/incidents';
 import { OFFICER_STATUS_CONFIG } from '../../mockData/officers';
+import * as incidentService from '../../services/incidentService';
+import * as officerService from '../../services/officerService';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import Modal, { ModalFooter } from '../../components/common/Modal';
@@ -32,40 +34,76 @@ function ElapsedTimer({ raisedAt }) {
 }
 
 export default function LiveEventsPage() {
-  const { incidents, officers, reassignIncident, escalateIncident } = useLiveStore();
+  // ── State ─────────────────────────────────────────────────────
+  const { reassignIncident: localReassign, escalateIncident: localEscalate } = useLiveStore();
   const { user } = useAuthStore();
+  const [incidents, setIncidents] = useState([]);
+  const [officers, setOfficers] = useState([]);
+  const [loadingIncidents, setLoadingIncidents] = useState(true);
+  const [apiError, setApiError] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [reassignTarget, setReassignTarget] = useState(null);
   const [reassigningId, setReassigningId] = useState(null);
-  const mapRef = useState(null);
+  const pollRef = useRef(null);
 
   const { isLoaded } = useJsApiLoader({
     id: 'live-events-map',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
   });
 
-  const activeEvents = incidents.filter(i => i.isActive);
-  const canSeeAll = ['SP', 'SUPER_ADMIN'].includes(user?.role);
-
-  // Select first event by default
-  useEffect(() => {
-    if (activeEvents.length > 0 && !selectedEvent) {
-      setSelectedEvent(activeEvents[0]);
+  // ── Fetch incidents from backend ─────────────────────────────
+  const fetchIncidents = useCallback(async (silent = false) => {
+    if (!silent) setLoadingIncidents(true);
+    setApiError(null);
+    try {
+      const data = await incidentService.getIncidents({ status: 'ACTIVE' });
+      const list = Array.isArray(data) ? data : (data?.content ?? []);
+      setIncidents(list);
+      // Auto-select first if none selected
+      setSelectedEvent(prev => prev ?? list[0] ?? null);
+    } catch (err) {
+      setApiError(err.response?.data?.message || err.message || 'Failed to load incidents');
+    } finally {
+      setLoadingIncidents(false);
     }
   }, []);
+
+  // ── Fetch officers for reassign list ───────────────────────
+  const fetchOfficers = useCallback(async () => {
+    try {
+      const data = await officerService.getOnDutyOfficers();
+      const list = Array.isArray(data) ? data : (data?.content ?? []);
+      setOfficers(list);
+    } catch {
+      // Officers list is non-critical; ignore errors
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchIncidents();
+    fetchOfficers();
+    // Poll every 15 seconds
+    pollRef.current = setInterval(() => fetchIncidents(true), 15000);
+    return () => clearInterval(pollRef.current);
+  }, [fetchIncidents, fetchOfficers]);
+
+  const canSeeAll = ['SP', 'SUPER_ADMIN'].includes(user?.role);
+  const activeEvents = incidents.filter(i => i.status === 'ACTIVE' || i.isActive);
 
   const handleReassign = async (incidentId, officerId) => {
     setReassigningId(incidentId);
     await new Promise(r => setTimeout(r, 600));
-    reassignIncident(incidentId, officerId);
+    // Optimistic local update (no backend reassign endpoint yet)
+    setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, assignedOfficerId: officerId } : i));
     setShowReassignModal(false);
     setReassigningId(null);
   };
 
   const handleEscalate = async (incidentId) => {
     await new Promise(r => setTimeout(r, 300));
-    escalateIncident(incidentId);
+    // Optimistic local update
+    setIncidents(prev => prev.map(i => i.id === incidentId ? { ...i, status: 'ESCALATED', escalated: true } : i));
   };
 
   const availableOfficers = officers.filter(o => o.status === 'ON_PATROL').slice(0, 12);
@@ -73,22 +111,20 @@ export default function LiveEventsPage() {
     ? officers.find(o => o.id === selectedEvent.assignedOfficerId)
     : null;
 
-  if (activeEvents.length === 0) {
+  if (loadingIncidents && incidents.length === 0) {
     return (
       <div className="live-events-page" id="live-events-page">
         <div className="page-content">
           <div className="page-header">
             <div>
               <h1 className="page-title">Live Events</h1>
-              <p className="page-subtitle">Active incidents requiring attention</p>
+              <p className="page-subtitle">Loading incidents from server...</p>
             </div>
           </div>
-          <div className="empty-state animate-fade-in">
-            <div className="empty-state-icon">
-              <AlertTriangle size={28} />
-            </div>
-            <p className="empty-state-title">All Clear</p>
-            <p className="empty-state-desc">No active incidents right now. The city is calm.</p>
+          <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--text-muted)' }}>
+            <div className="login-spinner" style={{ margin: '0 auto 12px' }} />
+            <p>Connecting to admin-service...</p>
+            {apiError && <p style={{ marginTop: 8, color: 'var(--accent-red)', fontSize: 13 }}>{apiError}</p>}
           </div>
         </div>
       </div>

@@ -16,6 +16,14 @@ spring:
       minimum-idle: 2
       idle-timeout: 30000
       connection-timeout: 20000
+      maxLifetime: 1800000
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+      maxLifetime: 1800000
   jpa:
     hibernate:
       ddl-auto: none
@@ -33,16 +41,6 @@ spring:
       url: ${REDIS_URL:redis://localhost:6379}
       ssl:
         enabled: ${REDIS_SSL_ENABLED:false}
-  cloud:
-    vault:
-      enabled: false
-    config:
-      fail-fast: false
-
-app:
-  jwt:
-    secret: ${JWT_SECRET:ZGVmYXVsdFNlY3JldEtleVRoYXRTaG91bGRCZVJlcGxhY2VkSW5Qcm9kdWN0aW9u}
-    expiration: ${JWT_EXPIRATION:900000}
     refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
 eureka:
@@ -51,6 +49,8 @@ eureka:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 10
 
 management:
   endpoints:
@@ -60,8 +60,13 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    redis:
+      enabled: false
 
 logging:
+  file:
+    name: logs/auth-service.log
   level:
     com.safeguard: DEBUG
     org.springframework.security: INFO

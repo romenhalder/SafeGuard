@@ -146,26 +146,29 @@ function Get-JvmJavaArgs {
     $s2 = $envVars['REDIS_STREAM_GPS_UPDATES']
     $s3 = $envVars['REDIS_STREAM_NOTIFICATIONS']
 
-    return @(
+    $jvmArgs = @(
         "-Xms128m","-Xmx512m",
         "-Dspring.profiles.active=$SpringProfile",
         "-Dspring.cloud.vault.enabled=false",
-        "-DPOSTGRES_JDBC_URL=`"$pg`"",
-        "-DPOSTGRES_USER=`"$pu`"",
-        "-DPOSTGRES_PASSWORD=`"$pp`"",
-        "-DREDIS_URL=`"$ru`"",
-        "-DMONGO_URI=`"$mu`"",
-        "-DJWT_SECRET=`"$js`"",
-        "-DJWT_EXPIRATION=$je",
-        "-DJWT_REFRESH_EXPIRATION=$jr",
-        "-DEUREKA_CLIENT_SERVICEURL_DEFAULTZONE=`"$eu`"",
-        "-DSPRING_CLOUD_CONFIG_URI=`"$cu`"",
-        "-DREDIS_STREAM_SOS_ALERTS=$s1",
-        "-DREDIS_STREAM_GPS_UPDATES=$s2",
-        "-DREDIS_STREAM_NOTIFICATIONS=$s3",
-        "-DFCM_ENABLED=false",
-        "-jar", "`"$jarPath`""
+        "-DFCM_ENABLED=false"
     )
+    if ($pg) { $jvmArgs += "-DPOSTGRES_JDBC_URL=`"$pg`"" }
+    if ($pu) { $jvmArgs += "-DPOSTGRES_USER=`"$pu`"" }
+    if ($pp) { $jvmArgs += "-DPOSTGRES_PASSWORD=`"$pp`"" }
+    if ($ru) { $jvmArgs += "-DREDIS_URL=`"$ru`"" }
+    if ($mu) { $jvmArgs += "-DMONGO_URI=`"$mu`"" }
+    if ($js) { $jvmArgs += "-Dapp.jwt.secret=`"$js`"" }
+    if ($je) { $jvmArgs += "-Dapp.jwt.expiration=$je" }
+    if ($jr) { $jvmArgs += "-Dapp.jwt.refresh-expiration=$jr" }
+    if ($eu) { $jvmArgs += "-DEUREKA_CLIENT_SERVICEURL_DEFAULTZONE=`"$eu`"" }
+    if ($cu) { $jvmArgs += "-DSPRING_CLOUD_CONFIG_URI=`"$cu`"" }
+    if ($s1) { $jvmArgs += "-DREDIS_STREAM_SOS_ALERTS=$s1" }
+    if ($s2) { $jvmArgs += "-DREDIS_STREAM_GPS_UPDATES=$s2" }
+    if ($s3) { $jvmArgs += "-DREDIS_STREAM_NOTIFICATIONS=$s3" }
+    
+    $jvmArgs += "-jar"
+    $jvmArgs += "`"$jarPath`""
+    return $jvmArgs
 }
 
 Write-Header "Starting Services"

@@ -5,6 +5,9 @@ import { useAuthStore } from '../../store/authStore';
 import { OFFICER_STATUS_CONFIG } from '../../mockData/officers';
 import { INCIDENT_STATUS, INCIDENT_TYPES } from '../../mockData/incidents';
 import { coverageGapAreas } from '../../mockData/zones';
+import * as officerService from '../../services/officerService';
+import * as locationService from '../../services/locationService';
+import * as incidentService from '../../services/incidentService';
 import { Search, Layers, Users, AlertTriangle, MapPin, Thermometer, Eye, EyeOff, Navigation2, Shield, X, Clock } from 'lucide-react';
 import Badge from '../../components/common/Badge';
 import { format } from 'date-fns';
@@ -69,11 +72,58 @@ export default function LiveMapPage() {
   });
 
   const {
-    officers, incidents, zones, layers, mapCenter, mapZoom,
+    officers: mockOfficers, incidents: mockIncidents, zones, layers, mapCenter, mapZoom,
     setLayer, flyToIncident, flyToLocation, setMapCenter, setMapZoom,
     selectedIncidentId, selectedOfficerId, setSelectedIncident, setSelectedOfficer,
   } = useLiveStore();
   const { user } = useAuthStore();
+
+  // ── Real API state ─────────────────────────────────────────────
+  const [apiOfficers, setApiOfficers] = useState(null); // null = not yet loaded
+  const [apiIncidents, setApiIncidents] = useState(null);
+  const gpsIntervalRef = useRef(null);
+
+  // Fetch initial officer list from admin-service
+  useEffect(() => {
+    officerService.getMapOfficers()
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data?.content ?? []);
+        if (list.length > 0) setApiOfficers(list);
+      })
+      .catch(() => { /* fall back to mock */ });
+
+    incidentService.getIncidents({ status: 'ACTIVE' })
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data?.content ?? []);
+        if (list.length > 0) setApiIncidents(list);
+      })
+      .catch(() => { /* fall back to mock */ });
+
+    // Poll GPS positions every 10s from location-service
+    gpsIntervalRef.current = setInterval(async () => {
+      try {
+        const locs = await locationService.getAllLocations();
+        if (Array.isArray(locs) && locs.length > 0) {
+          // Merge GPS updates into officer list
+          setApiOfficers(prev => {
+            if (!prev) return prev;
+            const locMap = {};
+            locs.forEach(l => { locMap[l.officerId] = l; });
+            return prev.map(o => {
+              const loc = locMap[o.id];
+              return loc ? { ...o, lat: loc.latitude, lng: loc.longitude, lastPing: loc.updatedAt } : o;
+            });
+          });
+        }
+      } catch { /* silent */ }
+    }, 10000);
+
+    return () => clearInterval(gpsIntervalRef.current);
+  }, []);
+
+  // Use real API data if available, otherwise fall back to mock store
+  const officers = apiOfficers ?? mockOfficers;
+  const incidents = apiIncidents ?? mockIncidents;
 
   const mapRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');

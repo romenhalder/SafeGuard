@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
-import { useLiveStore } from '../../store/liveStore';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { OFFICER_STATUS_CONFIG, ZONES, RANKS, SPECIALTIES } from '../../mockData/officers';
+import * as officerService from '../../services/officerService';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import Modal, { ModalFooter } from '../../components/common/Modal';
-import { Search, Plus, Filter, UserX, MapPin, Clock, Star, TrendingUp, Calendar, Zap, X } from 'lucide-react';
+import { Search, Plus, Filter, UserX, MapPin, Clock, Star, TrendingUp, Calendar, Zap, X, AlertCircle, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import './OfficersPage.css';
 
@@ -57,14 +57,41 @@ function OfficerRow({ officer, onSelect }) {
 }
 
 export default function OfficersPage() {
-  const { officers, updateOfficerStatus, updateOfficer } = useLiveStore();
+  const [officers, setOfficers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [zoneFilter, setZoneFilter] = useState('ALL');
   const [tab, setTab] = useState('Roster');
   const [selectedOfficer, setSelectedOfficer] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ firstName: '', lastName: '', badgeId: '', phone: '', rank: RANKS[0], zone: ZONES[0] });
+  const [saving, setSaving] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
 
+  // ── Load officers from backend ──────────────────────────────────
+  const loadOfficers = useCallback(async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const data = await officerService.getOfficers();
+      // Backend returns paginated Page<Officer> — unwrap content array if present
+      const list = Array.isArray(data) ? data : (data?.content ?? []);
+      setOfficers(list);
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to load officers';
+      setApiError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOfficers();
+  }, [loadOfficers]);
+
+  // ── Derived data ────────────────────────────────────────────────
   const filtered = useMemo(() => {
     return officers.filter(o => {
       const matchSearch = !search || o.fullName.toLowerCase().includes(search.toLowerCase()) || o.badgeId.toLowerCase().includes(search.toLowerCase());
@@ -81,17 +108,79 @@ export default function OfficersPage() {
     offDuty: officers.filter(o => o.status === 'OFF_DUTY').length,
   }), [officers]);
 
+  // ── Add officer handler ─────────────────────────────────────────
+  const handleAddOfficer = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const created = await officerService.createOfficer({
+        firstName: addForm.firstName,
+        lastName: addForm.lastName,
+        fullName: `${addForm.firstName} ${addForm.lastName}`,
+        badgeId: addForm.badgeId,
+        phone: addForm.phone,
+        rank: addForm.rank,
+        zone: addForm.zone,
+        status: 'OFF_DUTY',
+      });
+      setOfficers(prev => [created, ...prev]);
+      setShowAddModal(false);
+      setAddForm({ firstName: '', lastName: '', badgeId: '', phone: '', rank: RANKS[0], zone: ZONES[0] });
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to create officer');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Deactivate officer handler ──────────────────────────────────
+  const handleDeactivate = async (officerId) => {
+    if (!window.confirm('Deactivate this officer?')) return;
+    setDeactivating(true);
+    try {
+      await officerService.deactivateOfficer(officerId);
+      setOfficers(prev => prev.filter(o => o.id !== officerId));
+      setSelectedOfficer(null);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to deactivate officer');
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
   return (
     <div className="officers-page page-content" id="officers-page">
       <div className="page-header">
         <div>
           <h1 className="page-title">Officer Management</h1>
-          <p className="page-subtitle">Roster, scheduling, performance & live tracking</p>
+          <p className="page-subtitle">Roster, scheduling, performance &amp; live tracking</p>
         </div>
-        <Button variant="primary" size="md" icon={Plus} onClick={() => setShowAddModal(true)} id="add-officer-btn">
-          Add Officer
-        </Button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button variant="ghost" size="md" icon={RefreshCw} onClick={loadOfficers} id="refresh-officers-btn" disabled={isLoading}>
+            Refresh
+          </Button>
+          <Button variant="primary" size="md" icon={Plus} onClick={() => setShowAddModal(true)} id="add-officer-btn">
+            Add Officer
+          </Button>
+        </div>
       </div>
+
+      {/* API Error Banner */}
+      {apiError && (
+        <div className="login-error animate-fade-in" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <AlertCircle size={15} />
+          <span>{apiError} — showing live data if available</span>
+          <button onClick={loadOfficers} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', textDecoration: 'underline' }}>Retry</button>
+        </div>
+      )}
+
+      {/* Loading skeleton */}
+      {isLoading && officers.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
+          <div className="login-spinner" style={{ margin: '0 auto 12px' }} />
+          <p>Loading officers from server...</p>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="officers-stats animate-fade-in-up">
@@ -286,7 +375,9 @@ export default function OfficersPage() {
           </div>
           <ModalFooter>
             <Button variant="secondary" onClick={() => setSelectedOfficer(null)} id="officer-detail-close">Close</Button>
-            <Button variant="danger" size="md" id="deactivate-officer-btn">Deactivate</Button>
+            <Button variant="danger" size="md" id="deactivate-officer-btn" onClick={() => handleDeactivate(selectedOfficer.id)} disabled={deactivating}>
+              {deactivating ? 'Deactivating...' : 'Deactivate'}
+            </Button>
             <Button variant="primary" size="md" id="edit-officer-btn">Edit Officer</Button>
           </ModalFooter>
         </Modal>
@@ -294,32 +385,46 @@ export default function OfficersPage() {
 
       {/* Add Officer Modal */}
       <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Add New Officer" id="add-officer-modal" width={520}>
-        <form className="add-officer-form" onSubmit={e => { e.preventDefault(); setShowAddModal(false); }}>
+        <form className="add-officer-form" onSubmit={handleAddOfficer}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div className="form-group"><label className="form-label">First Name</label><input className="input" placeholder="First name" id="officer-first-name" /></div>
-            <div className="form-group"><label className="form-label">Last Name</label><input className="input" placeholder="Last name" id="officer-last-name" /></div>
-            <div className="form-group"><label className="form-label">Badge ID</label><input className="input" placeholder="KP0000" id="officer-badge-id" /></div>
-            <div className="form-group"><label className="form-label">Phone</label><input className="input" placeholder="+91 9XXXXXXXXX" id="officer-phone" /></div>
-            <div className="form-group"><label className="form-label">Rank</label>
-              <select className="select" id="officer-rank">
+            <div className="form-group">
+              <label className="form-label">First Name</label>
+              <input className="input" placeholder="First name" id="officer-first-name" required
+                value={addForm.firstName} onChange={e => setAddForm(f => ({ ...f, firstName: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Last Name</label>
+              <input className="input" placeholder="Last name" id="officer-last-name" required
+                value={addForm.lastName} onChange={e => setAddForm(f => ({ ...f, lastName: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Badge ID</label>
+              <input className="input" placeholder="KP0000" id="officer-badge-id" required
+                value={addForm.badgeId} onChange={e => setAddForm(f => ({ ...f, badgeId: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Phone</label>
+              <input className="input" placeholder="+91 9XXXXXXXXX" id="officer-phone"
+                value={addForm.phone} onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Rank</label>
+              <select className="select" id="officer-rank" value={addForm.rank} onChange={e => setAddForm(f => ({ ...f, rank: e.target.value }))}>
                 {RANKS.map(r => <option key={r}>{r}</option>)}
               </select>
             </div>
-            <div className="form-group"><label className="form-label">Zone</label>
-              <select className="select" id="officer-zone">
+            <div className="form-group">
+              <label className="form-label">Zone</label>
+              <select className="select" id="officer-zone" value={addForm.zone} onChange={e => setAddForm(f => ({ ...f, zone: e.target.value }))}>
                 {ZONES.map(z => <option key={z}>{z}</option>)}
               </select>
             </div>
           </div>
-          <div className="form-group">
-            <label className="form-label">Specialties</label>
-            <select className="select" id="officer-specialties">
-              {SPECIALTIES.map(s => <option key={s}>{s}</option>)}
-            </select>
-          </div>
           <ModalFooter>
             <Button variant="secondary" type="button" onClick={() => setShowAddModal(false)}>Cancel</Button>
-            <Button variant="primary" type="submit" id="save-officer-btn">Add Officer</Button>
+            <Button variant="primary" type="submit" id="save-officer-btn" disabled={saving}>
+              {saving ? 'Saving...' : 'Add Officer'}
+            </Button>
           </ModalFooter>
         </form>
       </Modal>
